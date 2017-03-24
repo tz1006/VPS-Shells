@@ -1,0 +1,136 @@
+#!/bin/sh
+
+# Install IPsec Server 配置IPsec 服务器
+yum -y install strongswan
+
+# ipsec.conf Default Location 默认文件位置
+# /etc/strongswan/ipsec.conf
+echo 'config setup
+    uniqueids=never 
+
+conn iOS_cert
+    keyexchange=ikev1
+    fragmentation=yes
+    left=%defaultroute
+    leftauth=pubkey
+    leftsubnet=0.0.0.0/0
+    leftcert=server.cert.pem
+    right=%any
+    rightauth=pubkey
+    rightauth2=xauth
+    rightsourceip=10.31.2.0/24
+    rightcert=client.cert.pem
+    auto=add
+
+conn android_xauth_psk
+    keyexchange=ikev1
+    left=%defaultroute
+    leftauth=psk
+    leftsubnet=0.0.0.0/0
+    right=%any
+    rightauth=psk
+    rightauth2=xauth
+    rightsourceip=10.31.2.0/24
+    auto=add
+
+conn networkmanager-strongswan
+    keyexchange=ikev2
+    left=%defaultroute
+    leftauth=pubkey
+    leftsubnet=0.0.0.0/0
+    leftcert=server.cert.pem
+    right=%any
+    rightauth=pubkey
+    rightsourceip=10.31.2.0/24
+    rightcert=client.cert.pem
+    auto=add
+
+conn ios_ikev2
+    keyexchange=ikev2
+    ike=aes256-sha256-modp2048,3des-sha1-modp2048,aes256-sha1-modp2048!
+    esp=aes256-sha256,3des-sha1,aes256-sha1!
+    rekey=no
+    left=%defaultroute
+    leftid=${vps_ip}
+    leftsendcert=always
+    leftsubnet=0.0.0.0/0
+    leftcert=server.cert.pem
+    right=%any
+    rightauth=eap-mschapv2
+    rightsourceip=10.31.2.0/24
+    rightsendcert=never
+    eap_identity=%any
+    dpdaction=clear
+    fragmentation=yes
+    auto=add
+
+conn windows7
+    keyexchange=ikev2
+    ike=aes256-sha1-modp1024!
+    rekey=no
+    left=%defaultroute
+    leftauth=pubkey
+    leftsubnet=0.0.0.0/0
+    leftcert=server.cert.pem
+    right=%any
+    rightauth=eap-mschapv2
+    rightsourceip=10.31.2.0/24
+    rightsendcert=never
+    eap_identity=%any
+    auto=add'> /etc/strongswan/ipsec.conf
+
+# config /etc/strongswan/ipsec.secrets
+echo ': RSA server.pem
+: PSK "vpn"
+: XAUTH "vpn"
+vpn %any : EAP "vpn"
+test %any : EAP "test"
+'> /etc/strongswan/ipsec.secrets
+
+# config /etc/strongswan/strongswan.conf
+echo '# strongswan.conf - strongSwan configuration file
+#
+# Refer to the strongswan.conf(5) manpage for details
+#
+# Configuration changes should be made in the included files
+
+charon {
+load_modular = yes
+duplicheck.enable = no
+compress = yes
+plugins {
+include strongswan.d/charon/*.conf
+}
+dns1 = 8.8.8.8
+dns2 = 8.8.4.4
+# for Windows only
+# nbns1 = 8.8.8.8
+# nbns2 = 8.8.4.4
+}
+
+include strongswan.d/*.conf
+'> /etc/strongswan/strongswan.conf
+
+echo net.ipv4.ip_forward = 1 >> /etc/sysctl.conf
+echo net.ipv4.conf.all.accept_redirects = 0 >> /etc/sysctl.conf
+echo net.ipv4.conf.all.send_redirects = 0 >> /etc/sysctl.conf
+sysctl -p
+service strongswan start
+chkconfig strongswan on
+
+# Config iptables
+iptables -F
+iptables -X
+# vi /etc/sysconfig/iptables
+/sbin/iptables -I INPUT -i eth0 -p esp -j ACCEPT
+/sbin/iptables -I INPUT -p tcp --dport 1723 -j ACCEPT
+/sbin/iptables -I INPUT -p udp --dport 1701 -j ACCEPT
+/sbin/iptables -I INPUT -p udp --dport 4500 -j ACCEPT
+/sbin/iptables -I INPUT -p udp --dport 500 -j ACCEPT
+/sbin/iptables -I INPUT -p tcp --dport 443 -j ACCEPT
+/sbin/iptables -I INPUT -p tcp --dport 80 -j ACCEPT
+/sbin/iptables -I INPUT -p tcp --dport 22 -j ACCEPT
+/sbin/iptables -t nat -A POSTROUTING -o eth0 -j MASQUERADE
+/etc/rc.d/init.d/iptables save
+service iptables restart
+#/etc/init.d/iptables status
