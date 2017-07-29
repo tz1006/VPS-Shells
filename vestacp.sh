@@ -16,7 +16,7 @@ sleep 10
 expect \"continue\"
 send \"y\r\"
 expect \"Sincerely\"
-exit
+exit 900
 "> /root/vestacp.expect
 expect /root/vestacp.expect
 rm -f /root/vestacp.expect
