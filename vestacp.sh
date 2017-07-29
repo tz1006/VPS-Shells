@@ -15,10 +15,8 @@ spawn bash vst-install.sh --nginx yes --phpfpm yes --apache no --named yes --rem
 sleep 10
 expect \"continue\"
 send \"y\r\"
-expect \"Congratulations\"
-interact
-#  expect eof
-#  exit
+expect \"Sincerely\"
+exit
 "> /root/vestacp.expect
 expect /root/vestacp.expect
 rm -f /root/vestacp.expect
