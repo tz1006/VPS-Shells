@@ -16,7 +16,7 @@ spawn bash vst-install-rhel.sh --nginx yes --phpfpm yes --apache no --named yes 
 sleep 10
 expect \"continue\"
 send \"y\r\"
-sleep 500
+interact
 "> /root/vestacp.expect
 expect /root/vestacp.expect
 rm -f /root/vestacp.expect
